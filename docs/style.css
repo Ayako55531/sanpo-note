@@ -12,3 +12,5 @@
 @media(max-width:600px){.calendar .care{font-size:10px;padding:2px}.calendar-toolbar button{padding:8px 10px;font-size:13px}}
 
 .duty.morning,.calendar-legend .morning{background:#24618c;color:#fff}.duty.evening,.calendar-legend .evening{background:#b73565;color:#fff}.calendar .duty.care{background:#34704f;color:#fff;text-decoration:none}.calendar-legend .care-key{background:#34704f;color:#fff}
+
+.calendar .morning,.calendar .evening{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

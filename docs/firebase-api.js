@@ -22,6 +22,7 @@ export async function connect(config,domain){
     async locks(){return rows(collection(db,'dogLocks'))},
     async start(dog){return startWalk({doc,collection,runTransaction,serverTimestamp},db,profile.uid,dog,profile.allowanceEnabled!==false)},
     async complete(id){return completeWalk({doc,runTransaction,serverTimestamp,getDoc},db,profile.uid,id)},
+    async markReported(id,kind='walks'){if(!['walks','health'].includes(kind))throw Error('報告の種類を確認してください。');await runTransaction(db,async tx=>{const r=ref(kind,id),snapshot=await tx.get(r);if(!snapshot.exists()||(kind==='walks'&&!snapshot.data().endedAt))throw Error('完了した散歩だけ報告済みにできます。');if(snapshot.data().lineReportedAt)return;tx.update(r,{lineReportedAt:serverTimestamp()})})},
     async ledgers(uid){return rows(collection(db,'ledgers',uid,'months'))},
     async receive(period,expected){return receiveLedger({doc,runTransaction,serverTimestamp},db,profile.uid,period,expected)},
     async calendar(month){const start=month.slice(0,4)+'-'+month.slice(4)+'-01',end=month.slice(0,4)+'-'+month.slice(4)+'-32';const load=name=>rows(query(collection(db,name),where('day','>=',start),where('day','<',end)));const [duties,events]=await Promise.all([load('duties'),load('events')]);return {duties,events}},
@@ -30,7 +31,7 @@ export async function connect(config,domain){
     async saveEvent(data,id){checkEvent(data);await setDoc(id?ref('events',id):doc(collection(db,'events')),data)},
     async deleteEvent(id){await deleteDoc(ref('events',id))},
     async health(cursor,dog){let q=dog?query(collection(db,'health'),where('dog','==',dog),orderBy('createdAt','desc'),limit(21)):query(collection(db,'health'),orderBy('createdAt','desc'),limit(21));if(cursor)q=query(q,startAfter(cursor));const snap=await getDocs(q);return {reports:snap.docs.slice(0,20).map(x=>({id:x.id,...x.data()})),next:snap.docs.length>20?snap.docs[19]:null}},
-    async addHealth(data){checkHealth(data);await setDoc(doc(collection(db,'health')),{...data,observedAt:Timestamp.fromDate(new Date(data.observedAt)),uid:profile.uid,createdAt:serverTimestamp()})},
+    async addHealth(data){checkHealth(data);const r=doc(collection(db,'health'));await setDoc(r,{...data,observedAt:Timestamp.fromDate(new Date(data.observedAt)),uid:profile.uid,createdAt:serverTimestamp()});return {id:r.id,...data,uid:profile.uid}},
     async comments(id){return rows(query(collection(db,'health',id,'comments'),orderBy('createdAt')))},
     async comment(id,body){body=body.trim();if(!body||body.length>1000)throw Error('コメントは1〜1000文字で入力してください。');await setDoc(doc(collection(db,'health',id,'comments')),{uid:profile.uid,body,createdAt:serverTimestamp()})},
     async addMember(data){

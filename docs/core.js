@@ -30,3 +30,8 @@ export function reportText(w,name){return `【散歩完了の報告】\n担当�
 export function csv(rows){return '\ufeff'+rows.map(row=>row.map(v=>{let s=String(v??'');if(/^[=+\-@\t\r]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"'}).join(',')).join('\r\n')}
 
 export function annualTotal(ledgers,year){return ledgers.filter(l=>validMonth(l.id)&&l.id.slice(0,4)===String(year)).reduce((sum,l)=>sum+Number(l.total||0),0)}
+
+export function healthReportText(h,name){
+ const dog=h.dog==='chibi'?'ちび（以前のまとめ記録）':ANIMALS[h.dog]?.name||h.dog;
+ return `【体調ノート】\n犬：${dog}\n確認：${displayTime(h.observedAt)}\n報告：${name}\n${Object.entries(HEALTH).map(([k,s])=>s[0]+'：'+h[k]).join('\n')}${h.note?.trim()?'\nメモ：'+h.note.trim():''}`;
+}
