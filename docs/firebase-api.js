@@ -34,7 +34,7 @@ export async function connect(config,domain){
     async comments(id){return rows(query(collection(db,'health',id,'comments'),orderBy('createdAt')))},
     async comment(id,body){body=body.trim();if(!body||body.length>1000)throw Error('コメントは1〜1000文字で入力してください。');await setDoc(doc(collection(db,'health',id,'comments')),{uid:profile.uid,body,createdAt:serverTimestamp()})},
     async addMember(data){
-      if(!/^[a-z0-9]{3,20}$/.test(data.handlerId)||!data.name.trim()||data.name.length>40||data.password.length<12||data.password.length>128)throw Error('ID・名前・12〜128文字の初期パスワードを確認してください。');
+      if(!/^[a-z0-9]{3,20}$/.test(data.handlerId)||!data.name.trim()||data.name.length>40||data.password.length<6||data.password.length>128)throw Error('ID・名前・6〜128文字の初期パスワードを確認してください。');
       const other=initializeApp(config,'member-'+crypto.randomUUID()),otherAuth=getAuth(other);await setPersistence(otherAuth,browserSessionPersistence);let created;
       try{created=await createUserWithEmailAndPassword(otherAuth,`${data.handlerId}@${domain}`,data.password);await runTransaction(db,async tx=>{const idRef=ref('memberIds',data.handlerId);if((await tx.get(idRef)).exists())throw Error('そのIDは登録済みです。');tx.set(ref('members',created.user.uid),{handlerId:data.handlerId,name:data.name.trim(),role:data.role,active:true,allowanceEnabled:data.allowanceEnabled});tx.set(idRef,{uid:created.user.uid})})}
       catch(e){if(created)try{await deleteUser(created.user)}catch{throw Error('登録途中で停止しました。FirebaseのAuthenticationで、このIDの未登録アカウントを確認してください。')}throw e}
