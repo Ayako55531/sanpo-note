@@ -1,11 +1,8 @@
-// Firebaseコンソールの「ウェブアプリ」の構成値だけを貼ります。
-// 管理用秘密鍵・サービスアカウント・パスワードは絶対に書かないでください。
 export const firebaseConfig = {
-  apiKey: '',
-  authDomain: '',
-  projectId: '',
-  appId: ''
+  apiKey: 'AIzaSyBm9b5BeWQtSkrGJn5I-zOmdMn8mZNqZhk',
+  authDomain: 'sanpo-note-abffa.firebaseapp.com',
+  projectId: 'sanpo-note-abffa',
+  appId: '1:247842762638:web:37ad5aeddc1e49f898bedf'
 };
-// Firebase Authenticationに作る内部ログイン用アドレスのドメイン。
-// 実際のメール送受信はしません。パスワードの再設定は管理者が行います。
+
 export const loginDomain = 'sanpo.example';
