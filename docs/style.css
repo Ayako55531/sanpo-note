@@ -7,3 +7,8 @@
 .calendar-details{margin-top:12px;padding:12px 14px;border:1px solid #dce5dd;border-radius:9px;background:#f8faf8;min-height:75px}.calendar-details p{margin:4px 0}.duty[role=button]{cursor:pointer}.duty[role=button]:focus-visible,.duty.detail-selected{outline:2px solid #597062;outline-offset:1px}
 
 .people-options{border:1px solid #dce5dd;border-radius:9px;padding:10px 14px;margin:14px 0}.people-options label{margin:8px 0}
+
+.calendar-toolbar{display:flex;flex-wrap:wrap;gap:4px}.calendar-details{min-height:155px}.calendar .care{width:100%;text-align:left;border:0;margin:3px 0 0;padding:3px;font:inherit;font-size:12px;line-height:inherit;color:#243c32}.calendar .care:focus-visible{outline:2px solid #597062;outline-offset:1px}.calendar-detail-row{gap:4px}.calendar-detail-row button{padding:6px 12px;margin:2px 4px 2px 0}
+@media(max-width:600px){.calendar .care{font-size:10px;padding:2px}.calendar-toolbar button{padding:8px 10px;font-size:13px}}
+
+.duty.morning,.calendar-legend .morning{background:#24618c;color:#fff}.duty.evening,.calendar-legend .evening{background:#b73565;color:#fff}.calendar .duty.care{background:#34704f;color:#fff;text-decoration:none}.calendar-legend .care-key{background:#34704f;color:#fff}
