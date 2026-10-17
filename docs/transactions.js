@@ -1,9 +1,9 @@
-import {DOGS,monthKey} from './core.js';
+import {DOGS,DEFAULT_GROUPS,DEFAULT_ANIMALS,monthKey} from './core.js';
 export async function startWalk(sdk,db,uid,dog,allowanceEnabled=true){
-  if(!DOGS[dog])throw Error('犬を選んでください。');
+  if(typeof dog!=='string'||!dog)throw Error('散歩グループを選んでください。');
   const {doc,collection,runTransaction,serverTimestamp}=sdk;
   const w=doc(collection(db,'walks')),d=doc(db,'dogLocks',dog),h=doc(db,'handlerLocks',uid);
-  await runTransaction(db,async tx=>{const [dl,hl]=await Promise.all([tx.get(d),tx.get(h)]);if(dl.data()?.active||hl.data()?.active)throw Error('すでに担当者または犬が散歩中です。');tx.set(w,{uid,dog,rate:allowanceEnabled?DOGS[dog].rate:0,startedAt:serverTimestamp(),endedAt:null,food:false,water:false,clean:false,period:null});tx.set(d,{active:w.id});tx.set(h,{active:w.id})});
+  await runTransaction(db,async tx=>{const [dl,hl,g]=await Promise.all([tx.get(d),tx.get(h),tx.get(doc(db,'walkGroups',dog))]);const group=g.exists()?g.data():DEFAULT_GROUPS[dog];if(!group?.active)throw Error('利用できる散歩グループを選んでください。');if(dl.data()?.active||hl.data()?.active)throw Error('すでに担当者または犬が散歩中です。');tx.set(w,{uid,dog,rate:allowanceEnabled?group.rate:0,startedAt:serverTimestamp(),endedAt:null,food:false,water:false,clean:false,period:null});tx.set(d,{active:w.id});tx.set(h,{active:w.id})});
   return w.id;
 }
 export async function completeWalk(sdk,db,uid,id){
@@ -23,4 +23,15 @@ export async function completeWalk(sdk,db,uid,id){
 export async function receiveLedger(sdk,db,uid,period,expected){
   const {doc,runTransaction,serverTimestamp}=sdk,l=doc(db,'ledgers',uid,'months',period);
   await runTransaction(db,async tx=>{const d=(await tx.get(l)).data();if(!d||!d.total||period>=monthKey())throw Error('締め後の金額を確認してください。');if(d.receivedAt)return;if(d.total!==expected)throw Error('金額が更新されています。画面を開き直してください。');tx.update(l,{receivedAt:serverTimestamp()})});
+}
+
+// Locks are read in the same transaction as edits, so a concurrent start retries.
+export async function saveCatalogEntry(sdk,db,kind,id,data){
+ const {doc,runTransaction}=sdk,ref=doc(db,kind==='dogs'?'dogs':'walkGroups',id);
+ await runTransaction(db,async tx=>{const old=(await tx.get(ref)).data()||(kind==='dogs'?DEFAULT_ANIMALS[id]:DEFAULT_GROUPS[id]);
+ const groups=kind==='dogs'?[old?.groupId,data.groupId]:[id];
+ for(const group of new Set(groups.filter(Boolean))){if((await tx.get(doc(db,'dogLocks',group))).data()?.active)throw Error('散歩中です。完了してから変更してください。')}
+ if(kind==='dogs'&&data.groupId){const group=(await tx.get(doc(db,'walkGroups',data.groupId))).data()||DEFAULT_GROUPS[data.groupId];if(!group?.active)throw Error('利用できる散歩グループを選んでください。')}
+ tx.set(ref,data);
+ });
 }

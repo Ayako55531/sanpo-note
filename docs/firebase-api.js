@@ -1,8 +1,8 @@
 import {initializeApp,deleteApp} from 'https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js';
 import {getAuth,setPersistence,browserSessionPersistence,signInWithEmailAndPassword,signOut,createUserWithEmailAndPassword,deleteUser} from 'https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js';
 import {getFirestore,collection,doc,getDoc,getDocs,query,where,orderBy,limit,startAfter,runTransaction,writeBatch,setDoc,updateDoc,deleteDoc,serverTimestamp,Timestamp} from 'https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js';
-import {checkHealth,checkEvent,validDate} from './core.js';
-import {startWalk,completeWalk,receiveLedger} from './transactions.js';
+import {checkHealth,checkEvent,validDate,applyCatalog,checkCatalog} from './core.js';
+import {startWalk,completeWalk,receiveLedger,saveCatalogEntry} from './transactions.js';
 export async function connect(config,domain){
   const application=initializeApp(config),auth=getAuth(application),db=getFirestore(application);
   await setPersistence(auth,browserSessionPersistence);
@@ -14,6 +14,8 @@ export async function connect(config,domain){
     async login(id,password){await signInWithEmailAndPassword(auth,`${id}@${domain}`,password);return this.restore()},
     async restore(){if(!auth.currentUser)return null;const d=await getDoc(ref('members',auth.currentUser.uid));if(!d.exists()||!d.data().active){await signOut(auth);throw Error('このアカウントは利用できません。管理者に確認してください。')}profile={uid:d.id,...d.data()};return profile},
     async logout(){profile=null;await signOut(auth)},
+    async catalog(){const [dogs,groups]=await Promise.all([rows(collection(db,'dogs')),rows(collection(db,'walkGroups'))]);const c={dogs,groups};applyCatalog(c);return c},
+    async saveCatalog(kind,id,data){checkCatalog(kind,data);await saveCatalogEntry({doc,runTransaction},db,kind,id,data)},
     async members(){return rows(collection(db,'members'))},
     async walks(){const q=profile.role==='admin'?collection(db,'walks'):query(collection(db,'walks'),where('uid','==',profile.uid));return (await rows(q)).sort((a,b)=>(b.startedAt?.toMillis()||0)-(a.startedAt?.toMillis()||0))},
     async walkPage(cursor){let q=profile.role==='admin'?query(collection(db,'walks'),orderBy('startedAt','desc'),limit(101)):query(collection(db,'walks'),where('uid','==',profile.uid),orderBy('startedAt','desc'),limit(101));if(cursor)q=query(q,startAfter(cursor));const snap=await getDocs(q);return {walks:snap.docs.slice(0,100).map(x=>({id:x.id,...x.data()})),next:snap.docs.length>100?snap.docs[99]:null}},
@@ -39,6 +41,6 @@ export async function connect(config,domain){
       finally{await signOut(otherAuth);await deleteApp(other)}
     },
     async updateMember(uid,data){if(uid===profile.uid)throw Error('自分自身の権限や利用状態は変更できません。');const [lock,person]=await Promise.all([getDoc(ref('handlerLocks',uid)),getDoc(ref('members',uid))]);if(lock.data()?.active&&(!data.active||data.role!==person.data().role))throw Error('散歩中です。完了してから利用状態や権限を変更してください。');await updateDoc(ref('members',uid),data)},
-    async backup(){const members=await this.members(),walks=await this.walks(),duties=await rows(collection(db,'duties')),events=await rows(collection(db,'events')),health=await rows(collection(db,'health'));const ledgers={},comments={};for(const m of members)ledgers[m.id]=await this.ledgers(m.id);for(const h of health)comments[h.id]=await this.comments(h.id);return {version:1,exportedAt:new Date().toISOString(),members,walks,duties,events,health,ledgers,comments}}
+    async backup(){const members=await this.members(),walks=await this.walks(),duties=await rows(collection(db,'duties')),events=await rows(collection(db,'events')),health=await rows(collection(db,'health'));const ledgers={},comments={};for(const m of members)ledgers[m.id]=await this.ledgers(m.id);for(const h of health)comments[h.id]=await this.comments(h.id);return {catalog:await this.catalog(),version:2,exportedAt:new Date().toISOString(),members,walks,duties,events,health,ledgers,comments}}
   };return api;
 }
