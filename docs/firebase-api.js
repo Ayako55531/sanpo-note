@@ -1,3 +1,4 @@
+import {deleteHealthReport} from './health-delete.js';
 import {initializeApp,deleteApp} from 'https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js';
 import {getAuth,setPersistence,browserSessionPersistence,signInWithEmailAndPassword,signOut,createUserWithEmailAndPassword,deleteUser} from 'https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js';
 import {getFirestore,collection,doc,getDoc,getDocs,query,where,orderBy,limit,startAfter,runTransaction,writeBatch,setDoc,updateDoc,deleteDoc,serverTimestamp,Timestamp} from 'https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js';
@@ -32,6 +33,7 @@ export async function connect(config,domain){
     async deleteEvent(id){await deleteDoc(ref('events',id))},
     async health(cursor,dog){let q=dog?query(collection(db,'health'),where('dog','==',dog),orderBy('createdAt','desc'),limit(21)):query(collection(db,'health'),orderBy('createdAt','desc'),limit(21));if(cursor)q=query(q,startAfter(cursor));const snap=await getDocs(q);return {reports:snap.docs.slice(0,20).map(x=>({id:x.id,...x.data()})),next:snap.docs.length>20?snap.docs[19]:null}},
     async addHealth(data){checkHealth(data);const r=doc(collection(db,'health'));await setDoc(r,{...data,observedAt:Timestamp.fromDate(new Date(data.observedAt)),uid:profile.uid,createdAt:serverTimestamp()});return {id:r.id,...data,uid:profile.uid}},
+    async deleteHealth(id){return deleteHealthReport({doc,collection,runTransaction,getDocs,query,limit,writeBatch,deleteDoc,getDoc},db,id)},
     async comments(id){return rows(query(collection(db,'health',id,'comments'),orderBy('createdAt')))},
     async comment(id,body){body=body.trim();if(!body||body.length>1000)throw Error('コメントは1〜1000文字で入力してください。');await setDoc(doc(collection(db,'health',id,'comments')),{uid:profile.uid,body,createdAt:serverTimestamp()})},
     async addMember(data){
