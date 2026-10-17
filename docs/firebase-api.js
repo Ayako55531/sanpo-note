@@ -1,18 +1,23 @@
+import {copyDutyPattern} from './duty-copy.js';
 import {deleteHealthReport} from './health-delete.js';
 import {initializeApp,deleteApp} from 'https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js';
-import {getAuth,setPersistence,browserSessionPersistence,signInWithEmailAndPassword,signOut,createUserWithEmailAndPassword,deleteUser} from 'https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js';
+import {getAuth,setPersistence,browserLocalPersistence,browserSessionPersistence,signInWithEmailAndPassword,signOut,createUserWithEmailAndPassword,deleteUser} from 'https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js';
 import {getFirestore,collection,doc,getDoc,getDocs,query,where,orderBy,limit,startAfter,runTransaction,writeBatch,setDoc,updateDoc,deleteDoc,serverTimestamp,Timestamp} from 'https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js';
 import {checkHealth,checkEvent,validDate,applyCatalog,checkCatalog} from './core.js?v=20261018-schedule-people';
 import {startWalk,completeWalk,receiveLedger,saveCatalogEntry} from './transactions.js';
 export async function connect(config,domain){
   const application=initializeApp(config),auth=getAuth(application),db=getFirestore(application);
-  await setPersistence(auth,browserSessionPersistence);
+  const preferenceKey=`sanpo-keep-login:${config.projectId}`;
+  let keepLogin=true;
+  try{keepLogin=localStorage.getItem(preferenceKey)!=='false'}catch{}
+  await setPersistence(auth,keepLogin?browserLocalPersistence:browserSessionPersistence);
   await auth.authStateReady();
   let profile;
   const ref=(...p)=>doc(db,...p);
   const rows=async q=>(await getDocs(q)).docs.map(x=>({id:x.id,...x.data()}));
   const api={demo:false,
-    async login(id,password){await signInWithEmailAndPassword(auth,`${id}@${domain}`,password);return this.restore()},
+    get keepLoginPreference(){return keepLogin},
+    async login(id,password,keep=keepLogin){await setPersistence(auth,keep?browserLocalPersistence:browserSessionPersistence);keepLogin=Boolean(keep);try{localStorage.setItem(preferenceKey,String(keepLogin))}catch{}await signInWithEmailAndPassword(auth,`${id}@${domain}`,password);return this.restore()},
     async restore(){if(!auth.currentUser)return null;const d=await getDoc(ref('members',auth.currentUser.uid));if(!d.exists()||!d.data().active){await signOut(auth);throw Error('このアカウントは利用できません。管理者に確認してください。')}profile={uid:d.id,...d.data()};return profile},
     async logout(){profile=null;await signOut(auth)},
     async catalog(){const [dogs,groups]=await Promise.all([rows(collection(db,'dogs')),rows(collection(db,'walkGroups'))]);const c={dogs,groups};applyCatalog(c);return c},
@@ -28,6 +33,7 @@ export async function connect(config,domain){
     async receive(period,expected){return receiveLedger({doc,runTransaction,serverTimestamp},db,profile.uid,period,expected)},
     async calendar(month){const start=month.slice(0,4)+'-'+month.slice(4)+'-01',end=month.slice(0,4)+'-'+month.slice(4)+'-32';const load=name=>rows(query(collection(db,name),where('day','>=',start),where('day','<',end)));const [duties,events]=await Promise.all([load('duties'),load('events')]);return {duties,events}},
     async saveDuty(data,oldId){if(!validDate(data.day))throw Error('日付を確認してください。');const id=`${data.day}_${data.slot}_${data.dog}`;await runTransaction(db,async tx=>{const existing=await tx.get(ref('duties',id));if(existing.exists()&&id!==oldId)throw Error('同じ日・時間帯・犬の当番が登録済みです。');tx.set(ref('duties',id),data);if(oldId&&oldId!==id)tx.delete(ref('duties',oldId))})},
+    async copyDuties(templates,day){return copyDutyPattern({doc,runTransaction},db,templates,day)},
     async deleteDuty(id){await deleteDoc(ref('duties',id))},
     async saveEvent(data,id){checkEvent(data);await setDoc(id?ref('events',id):doc(collection(db,'events')),data)},
     async deleteEvent(id){await deleteDoc(ref('events',id))},
