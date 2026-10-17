@@ -1,4 +1,4 @@
-import {DOGS,ANIMALS,applyCatalog,checkCatalog,dateKey,monthKey,shiftMonth,checkHealth,checkEvent} from './core.js';
+import {DOGS,ANIMALS,applyCatalog,checkCatalog,dateKey,monthKey,shiftMonth,checkHealth,checkEvent} from './core.js?v=20261018-schedule-people';
 export function demoApi(){
   const key='sanpo-firebase-demo-v1';let data;
   try{data=JSON.parse(localStorage.getItem(key))}catch{}

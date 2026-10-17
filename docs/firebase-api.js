@@ -1,7 +1,7 @@
 import {initializeApp,deleteApp} from 'https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js';
 import {getAuth,setPersistence,browserSessionPersistence,signInWithEmailAndPassword,signOut,createUserWithEmailAndPassword,deleteUser} from 'https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js';
 import {getFirestore,collection,doc,getDoc,getDocs,query,where,orderBy,limit,startAfter,runTransaction,writeBatch,setDoc,updateDoc,deleteDoc,serverTimestamp,Timestamp} from 'https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js';
-import {checkHealth,checkEvent,validDate,applyCatalog,checkCatalog} from './core.js';
+import {checkHealth,checkEvent,validDate,applyCatalog,checkCatalog} from './core.js?v=20261018-schedule-people';
 import {startWalk,completeWalk,receiveLedger,saveCatalogEntry} from './transactions.js';
 export async function connect(config,domain){
   const application=initializeApp(config),auth=getAuth(application),db=getFirestore(application);

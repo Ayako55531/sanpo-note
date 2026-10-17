@@ -9,7 +9,7 @@ export const HEALTH = {
   stool:['うんち',['未確認','いつも通り','出なかった','ゆるい','水っぽい','かたい','血が混じる']],
   energy:['元気・様子',['未確認','いつも通り','元気がない','気になる様子がある']]
 };
-export const KINDS=['病院','予防接種','その他'];
+export const KINDS=['病院','予防接種','トリミング','ホテル','その他'];
 export const yen=n=>Number(n||0).toLocaleString('ja-JP')+'円';
 export const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function asDate(v){return v?.toDate?v.toDate():new Date(v)}
