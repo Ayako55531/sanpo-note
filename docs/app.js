@@ -71,12 +71,13 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-action]');
  if(a==='backup'){const data=await api.backup();download('sanpo-backup-'+dateKey()+'.json',JSON.stringify(data,null,2),'application/json');tell('データの控えを保存しました。')}
 })});
 document.addEventListener('change',e=>{if(e.target.id==='demo-role')act(async()=>{me=await api.login(e.target.value);walkCursor=null;healthCursor=null;await load()});if(e.target.id==='health-filter'){healthDog=e.target.value;healthCursor=null;act(()=>showHealth())}});
-document.addEventListener('submit',e=>{e.preventDefault();const f=e.target,data=Object.fromEntries(new FormData(f));act(async()=>{
- if(f.id==='login-form'){me=await api.login(data.id.trim(),data.password);data.password='';f.reset();await load();tell('ログインしました。')}
- if(f.id==='start-form'){await api.start(data.dog);await load();tell('散歩を開始しました。気をつけていってらっしゃい！')}
- if(f.id==='complete-form'){if(!['food','water','clean'].every(k=>data[k]==='1'))throw Error('ご飯・お水・掃除をすべて確認してください。');const w=await api.complete(f.dataset.id);await load();showReport(w);tell(paid()?'完了しました。おこづかいを1回分加算しました。':'散歩が完了しました。お世話ありがとうございます。')}
- if(f.id==='pay-month-form'){const k=data.month.replace('-','');if(!validMonth(k))throw Error('年月を確認してください。');payMonth=k;await load()}
- if(f.id==='editor-form'){await editorTask(data);f.reset();$('editor').close();f.querySelector('button[type=submit]').hidden=false;await load();tell('保存しました。')}
+document.addEventListener('submit',e=>{e.preventDefault();const f=e.target,formId=f.getAttribute('id'),data=Object.fromEntries(new FormData(f));act(async()=>{
+ // Native HTMLFormElement named properties can shadow .id when an input is named "id".
+ if(formId==='login-form'){me=await api.login(data.id.trim(),data.password);data.password='';f.reset();await load();tell('ログインしました。')}
+ if(formId==='start-form'){await api.start(data.dog);await load();tell('散歩を開始しました。気をつけていってらっしゃい！')}
+ if(formId==='complete-form'){if(!['food','water','clean'].every(k=>data[k]==='1'))throw Error('ご飯・お水・掃除をすべて確認してください。');const w=await api.complete(f.dataset.id);await load();showReport(w);tell(paid()?'完了しました。おこづかいを1回分加算しました。':'散歩が完了しました。お世話ありがとうございます。')}
+ if(formId==='pay-month-form'){const k=data.month.replace('-','');if(!validMonth(k))throw Error('年月を確認してください。');payMonth=k;await load()}
+ if(formId==='editor-form'){await editorTask(data);f.reset();$('editor').close();f.querySelector('button[type=submit]').hidden=false;await load();tell('保存しました。')}
  if(f.dataset.comment){await api.comment(f.dataset.comment,data.body);await showComments(f.dataset.comment);tell('コメントを共有しました。')}
 })});
 $('editor').addEventListener('close',()=>{$('editor-form').querySelector('button[type=submit]').hidden=false;$('editor-fields').replaceChildren();editorTask=null});
