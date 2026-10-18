@@ -1,10 +1,10 @@
-import {copyDutyPattern,saveDutySlot,saveAdminScheduleNote} from './duty-copy.js?v=20261018-submission-popup';
+import {copyDutyPattern,saveDutySlot,saveAdminScheduleNote} from './duty-copy.js?v=20261018-group-all';
 import {deleteHealthReport} from './health-delete.js';
 import {initializeApp,deleteApp} from 'https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js';
 import {getAuth,setPersistence,browserLocalPersistence,browserSessionPersistence,signInWithEmailAndPassword,signOut,createUserWithEmailAndPassword,deleteUser} from 'https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js';
 import {onSnapshot,getFirestore,collection,doc,getDoc,getDocs,query,where,orderBy,limit,startAfter,runTransaction,writeBatch,setDoc,updateDoc,deleteDoc,serverTimestamp,Timestamp} from 'https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js';
-import {checkHealth,checkEvent,validDate,applyCatalog,checkCatalog,checkUnavailable} from './core.js?v=20261018-family-nine';
-import {startWalk,completeWalk,receiveLedger,saveCatalogEntry,correctWalk,backfillWalkStatus} from './transactions.js?v=20261018-family-nine';
+import {checkHealth,checkEvent,validDate,applyCatalog,checkCatalog,checkUnavailable} from './core.js?v=20261018-group-all';
+import {startWalk,completeWalk,receiveLedger,saveCatalogEntry,correctWalk,backfillWalkStatus} from './transactions.js?v=20261018-group-all';
 export async function connect(config,domain){
   const application=initializeApp(config),auth=getAuth(application),db=getFirestore(application);
   const preferenceKey=`sanpo-keep-login:${config.projectId}`;
@@ -33,7 +33,7 @@ export async function connect(config,domain){
     async saveUnavailable(month,slots,note){checkUnavailable(month,slots,note);await setDoc(ref('unavailability',profile.uid+'_'+month),{uid:profile.uid,month,slots,note,submittedAt:serverTimestamp()})},
     async walkDetails(uid,period){return rows(query(collection(db,'walks'),where('uid','==',uid),where('period','==',period)))},
     watchLocks(callback,onError){return onSnapshot(collection(db,'dogLocks'),snap=>callback(snap.docs.map(d=>({id:d.id,...d.data()}))),onError)},
-    async locks(){if(profile.role==='admin'&&!statusMigrated){const recent=await rows(query(collection(db,'walks'),where('endedAt','>',Timestamp.fromMillis(Date.now()-6*3600000))));await backfillWalkStatus({doc,runTransaction},db,recent);statusMigrated=true}return rows(collection(db,'dogLocks'))},
+    async locks(){if(profile.role==='admin'&&!statusMigrated){const recent=await rows(query(collection(db,'walks'),where('endedAt','>',Timestamp.fromMillis(Date.now()-6*3600000))));await backfillWalkStatus({doc,runTransaction,getDoc},db,recent);statusMigrated=true}return rows(collection(db,'dogLocks'))},
     async start(dog){return startWalk({doc,collection,runTransaction,serverTimestamp},db,profile.uid,dog,profile.allowanceEnabled!==false)},
     async complete(id){return completeWalk({doc,runTransaction,serverTimestamp,getDoc},db,profile.uid,id)},
     async markReported(id,kind='walks'){if(!['walks','health'].includes(kind))throw Error('報告の種類を確認してください。');await runTransaction(db,async tx=>{const r=ref(kind,id),snapshot=await tx.get(r);if(!snapshot.exists()||(kind==='walks'&&!snapshot.data().endedAt))throw Error('完了した散歩だけ報告済みにできます。');if(snapshot.data().lineReportedAt)return;tx.update(r,{lineReportedAt:serverTimestamp()})})},

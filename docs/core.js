@@ -1,8 +1,8 @@
-export const DEFAULT_GROUPS={gin:{name:'銀',rate:1000,active:true},chibi:{name:'ちび',rate:500,active:true}};
+export const DEFAULT_GROUPS={gin:{name:'銀',rate:1000,active:true},chibi:{name:'ちび',rate:500,active:true},both:{name:'全員',rate:1500,active:true,combined:true}};
 export const DEFAULT_ANIMALS={gin:{name:'銀',breed:'ハスキー',groupId:'gin',active:true},mame:{name:'マメ',breed:'チワワ',groupId:'chibi',active:true},chamame:{name:'茶マメ',breed:'チワワ',groupId:'chibi',active:true}};
 export const DOGS=structuredClone(DEFAULT_GROUPS),ANIMALS=structuredClone(DEFAULT_ANIMALS);
-export function applyCatalog(c={}){for(const [target,defaults,rows] of [[DOGS,DEFAULT_GROUPS,c.groups],[ANIMALS,DEFAULT_ANIMALS,c.dogs]]){for(const k of Object.keys(target))delete target[k];Object.assign(target,structuredClone(defaults));for(const row of rows||[]){const {id,...data}=row;target[id]=data}}}
-export function checkCatalog(kind,d){if(!d.name?.trim()||d.name.length>(kind==='dogs'?40:12)||typeof d.active!=='boolean')throw Error('名前と表示状態を確認してください。');if(kind==='dogs'){if(typeof d.breed!=='string'||d.breed.length>40||typeof d.groupId!=='string'||(d.groupId&&!DOGS[d.groupId]?.active))throw Error('犬種と散歩グループを確認してください。')}else if(!Number.isInteger(d.rate)||d.rate<0||d.rate>100000)throw Error('金額は0〜100,000円の整数で入力してください。')}
+export function applyCatalog(c={}){for(const [target,defaults,rows] of [[DOGS,DEFAULT_GROUPS,c.groups],[ANIMALS,DEFAULT_ANIMALS,c.dogs]]){for(const k of Object.keys(target))delete target[k];Object.assign(target,structuredClone(defaults));for(const row of rows||[]){const {id,...data}=row;target[id]=data}}const explicitBoth=(c.groups||[]).some(g=>g.id==='both');if(!explicitBoth&&Object.entries(DOGS).some(([id,g])=>id!=='both'&&isCombinedGroup(id,g)))delete DOGS.both;else if(!explicitBoth)DOGS.both.rate=DOGS.gin.rate+DOGS.chibi.rate;}
+export function checkCatalog(kind,d){if(!d.name?.trim()||d.name.length>(kind==='dogs'?40:12)||typeof d.active!=='boolean')throw Error('名前と表示状態を確認してください。');if(kind==='dogs'){if(typeof d.breed!=='string'||d.breed.length>40||typeof d.groupId!=='string'||(d.groupId&&(!DOGS[d.groupId]?.active||isCombinedGroup(d.groupId))))throw Error('犬種と散歩グループを確認してください。')}else if(d.combined!==undefined&&typeof d.combined!=='boolean')throw Error('散歩の対象を確認してください。');else if(!Number.isInteger(d.rate)||d.rate<0||d.rate>100000)throw Error('金額は0〜100,000円の整数で入力してください。')}
 
 export const HEALTH = {
   appetite:['ご飯・食欲',['未確認','いつも通り食べた','少ししか食べない','食べない']],
@@ -36,8 +36,10 @@ export function healthReportText(h,name){
  return `【体調ノート】\n犬：${dog}\n確認：${displayTime(h.observedAt)}\n報告：${name}\n${Object.entries(HEALTH).map(([k,s])=>s[0]+'：'+h[k]).join('\n')}${h.note?.trim()?'\nメモ：'+h.note.trim():''}`;
 }
 
-export const walkGroups=dog=>dog==='both'?['gin','chibi']:[dog];
-export const walkName=dog=>walkGroups(dog).map(id=>DOGS[id]?.name||id).join('・');
+export const isCombinedGroup=(id,data=DOGS[id])=>id==='both'||(!['gin','chibi'].includes(id)&&(data?.combined===true||(data?.combined===undefined&&data?.name==='全員')));
+export const groupMembers=(id,data)=>isCombinedGroup(id,data)?['gin','chibi']:[id];
+export const walkGroups=dog=>groupMembers(dog,DOGS[dog]);
+export const walkName=dog=>DOGS[dog]?.name||(dog==='both'?'全員':dog);
 export const cooldownUntil=lock=>lock?.completedAt?asDate(lock.completedAt).getTime()+6*3600000:0;
 export function checkUnavailable(month,slots,note=''){
  if(!validMonth(month)||!Array.isArray(slots)||slots.length>62||new Set(slots).size!==slots.length||typeof note!=='string'||note.length>500)throw Error('提出する月・日付・メモを確認してください。');
