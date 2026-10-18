@@ -1,4 +1,4 @@
-import {copyDutyPattern} from './duty-copy.js';
+import {copyDutyPattern,saveDutySlot,saveAdminScheduleNote} from './duty-copy.js?v=20261018-submission-popup';
 import {deleteHealthReport} from './health-delete.js';
 import {initializeApp,deleteApp} from 'https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js';
 import {getAuth,setPersistence,browserLocalPersistence,browserSessionPersistence,signInWithEmailAndPassword,signOut,createUserWithEmailAndPassword,deleteUser} from 'https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js';
@@ -28,6 +28,8 @@ export async function connect(config,domain){
     async correctWalk(id,dog,reason,cancel=false){return correctWalk({doc,collection,runTransaction,serverTimestamp,getDoc},db,profile.uid,id,dog,reason,cancel)},
     async correctionHistory(id){return rows(query(collection(db,'walkEdits'),where('walkId','==',id)))},
     async unavailable(month){let q=query(collection(db,'unavailability'),where('month','==',month));if(profile.role!=='admin')q=query(q,where('uid','==',profile.uid));return rows(q)},
+    async adminScheduleNote(month){if(!/^(20[0-9]{2}|2100)(0[1-9]|1[0-2])$/.test(month))throw Error('月を確認してください。');const snapshot=await getDoc(ref('adminScheduleNotes',month));return snapshot.exists()?snapshot.data():{note:'',revision:0}},
+    async saveAdminScheduleNote(month,note,revision){await saveAdminScheduleNote({doc,runTransaction,serverTimestamp,getDoc},db,profile.uid,month,note,revision);return {note,revision:revision+1}},
     async saveUnavailable(month,slots,note){checkUnavailable(month,slots,note);await setDoc(ref('unavailability',profile.uid+'_'+month),{uid:profile.uid,month,slots,note,submittedAt:serverTimestamp()})},
     async walkDetails(uid,period){return rows(query(collection(db,'walks'),where('uid','==',uid),where('period','==',period)))},
     watchLocks(callback,onError){return onSnapshot(collection(db,'dogLocks'),snap=>callback(snap.docs.map(d=>({id:d.id,...d.data()}))),onError)},
@@ -39,6 +41,7 @@ export async function connect(config,domain){
     async receive(period,expected){return receiveLedger({doc,runTransaction,serverTimestamp},db,profile.uid,period,expected)},
     async calendar(month){const start=month.slice(0,4)+'-'+month.slice(4)+'-01',end=month.slice(0,4)+'-'+month.slice(4)+'-32';const load=name=>rows(query(collection(db,name),where('day','>=',start),where('day','<',end)));const [duties,events]=await Promise.all([load('duties'),load('events')]);return {duties,events}},
     async saveDuty(data,oldId){if(!validDate(data.day))throw Error('日付を確認してください。');const id=`${data.day}_${data.slot}_${data.dog}`;await runTransaction(db,async tx=>{const existing=await tx.get(ref('duties',id));if(existing.exists()&&id!==oldId)throw Error('同じ日・時間帯・犬の当番が登録済みです。');tx.set(ref('duties',id),data);if(oldId&&oldId!==id)tx.delete(ref('duties',oldId))})},
+    async saveDutySlot(day,slot,assignments,expected){return saveDutySlot({doc,runTransaction},db,day,slot,assignments,expected)},
     async copyDuties(templates,day){return copyDutyPattern({doc,runTransaction},db,templates,day)},
     async deleteDuty(id){await deleteDoc(ref('duties',id))},
     async saveEvent(data,id){checkEvent(data);await setDoc(id?ref('events',id):doc(collection(db,'events')),data)},
@@ -56,6 +59,6 @@ export async function connect(config,domain){
       finally{await signOut(otherAuth);await deleteApp(other)}
     },
     async updateMember(uid,data){if(uid===profile.uid)throw Error('自分自身の権限や利用状態は変更できません。');const [lock,person]=await Promise.all([getDoc(ref('handlerLocks',uid)),getDoc(ref('members',uid))]);if(lock.data()?.active&&(!data.active||data.role!==person.data().role))throw Error('散歩中です。完了してから利用状態や権限を変更してください。');await updateDoc(ref('members',uid),data)},
-    async backup(){const unavailability=await rows(collection(db,'unavailability')),walkEdits=await rows(collection(db,'walkEdits'));const members=await this.members(),walks=await this.walks(),duties=await rows(collection(db,'duties')),events=await rows(collection(db,'events')),health=await rows(collection(db,'health'));const ledgers={},comments={};for(const m of members)ledgers[m.id]=await this.ledgers(m.id);for(const h of health)comments[h.id]=await this.comments(h.id);return {unavailability,walkEdits,catalog:await this.catalog(),version:3,exportedAt:new Date().toISOString(),members,walks,duties,events,health,ledgers,comments}}
+    async backup(){const adminScheduleNotes=await rows(collection(db,'adminScheduleNotes'));const unavailability=await rows(collection(db,'unavailability')),walkEdits=await rows(collection(db,'walkEdits'));const members=await this.members(),walks=await this.walks(),duties=await rows(collection(db,'duties')),events=await rows(collection(db,'events')),health=await rows(collection(db,'health'));const ledgers={},comments={};for(const m of members)ledgers[m.id]=await this.ledgers(m.id);for(const h of health)comments[h.id]=await this.comments(h.id);return {adminScheduleNotes,unavailability,walkEdits,catalog:await this.catalog(),version:3,exportedAt:new Date().toISOString(),members,walks,duties,events,health,ledgers,comments}}
   };return api;
 }
