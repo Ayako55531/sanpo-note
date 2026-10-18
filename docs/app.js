@@ -26,7 +26,7 @@ function peopleField(name,label,value='',optional=false){const current=members.f
 function dogField(both=false,current='gin'){return select('dog','散歩グループ',[...Object.entries(DOGS).filter(([k,d])=>d.active||k===current).map(([k,d])=>[k,d.name]),...(both?[['both','みんな']]:[])],current)}
 function animalField(both=false,current='gin'){return select('dog','犬',[...Object.entries(ANIMALS).filter(([k,d])=>d.active||k===current).map(([k,d])=>[k,d.name]),...(current==='chibi'?[['chibi','ちび（以前のまとめ記録）']]:[]),...(both?[['both','みんな']]:[])],current)}
 function noteField(value='',label='メモ',max=2000,name='note'){return `<label>${label}<textarea name="${name}" maxlength="${max}">${esc(value)}</textarea></label>`}
-function openEditor(title,fields,task){closeSubmissionPopup();editorTask=task;$('editor-title').textContent=title;$('editor-fields').innerHTML=fields;labelTables();if(!$('editor').open)$('editor').showModal()}
+function openEditor(title,fields,task){$('editor-form').querySelector('button[type=submit]').hidden=false;closeSubmissionPopup();editorTask=task;$('editor-title').textContent=title;$('editor-fields').innerHTML=fields;labelTables();if(!$('editor').open)$('editor').showModal()}
 function download(name,text,type){const u=URL.createObjectURL(new Blob([text],{type})),a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}
 function shell(){
  $('identity').innerHTML=me?`<span>${esc(me.name)} · ${admin()?'管理者':'メンバー'}</span><br>${button('ログアウト','logout')}`:'';
