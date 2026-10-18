@@ -26,7 +26,7 @@ export function validMonth(k){return /^\d{4}(0[1-9]|1[0-2])$/.test(k)&&Number(k)
 export function validDate(s){if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return false;const d=new Date(s+'T00:00:00+09:00');return !isNaN(d)&&dateKey(d)===s&&s>='2000-01-01'&&s<='2100-12-31'}
 export function checkHealth(d){if(!ANIMALS[d.dog]?.active||Object.entries(HEALTH).some(([k,s])=>!s[1].includes(d[k])))throw Error('犬と体調の項目を確認してください。');if(d.note.length>2000||(!d.note.trim()&&Object.keys(HEALTH).every(k=>d[k]==='未確認')))throw Error('気づいたことを1つ以上入力してください。');const t=new Date(d.observedAt);if(isNaN(t)||t.getTime()>Date.now()+300000)throw Error('確認した日時を確認してください。')}
 export function checkEvent(d){if(!validDate(d.day)||(d.time&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(d.time))||!KINDS.includes(d.kind)||!(ANIMALS[d.dog]?.active||['chibi','both'].includes(d.dog))||!d.title.trim()||d.title.length>100||d.place.length>200||d.note.length>2000)throw Error('予定の日付・項目・文字数を確認してください。')}
-export function reportText(w,name){return `【散歩完了の報告】\n担当：${name}\n犬：${DOGS[w.dog]?.name||w.dog}\n開始：${displayTime(w.startedAt)}\n終了：${displayTime(w.endedAt)}\nご飯OK\nお水OK\n掃除OK\nお世話が完了しました。`}
+export function reportText(w,name){return `【散歩完了の報告】\n担当：${name}\n犬：${walkName(w.dog)}\n開始：${displayTime(w.startedAt)}\n終了：${displayTime(w.endedAt)}\nご飯OK\nお水OK\n掃除OK\nお世話が完了しました。`}
 export function csv(rows){return '\ufeff'+rows.map(row=>row.map(v=>{let s=String(v??'');if(/^[=+\-@\t\r]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"'}).join(',')).join('\r\n')}
 
 export function annualTotal(ledgers,year){return ledgers.filter(l=>validMonth(l.id)&&l.id.slice(0,4)===String(year)).reduce((sum,l)=>sum+Number(l.total||0),0)}
@@ -34,4 +34,12 @@ export function annualTotal(ledgers,year){return ledgers.filter(l=>validMonth(l.
 export function healthReportText(h,name){
  const dog=h.dog==='chibi'?'ちび（以前のまとめ記録）':ANIMALS[h.dog]?.name||h.dog;
  return `【体調ノート】\n犬：${dog}\n確認：${displayTime(h.observedAt)}\n報告：${name}\n${Object.entries(HEALTH).map(([k,s])=>s[0]+'：'+h[k]).join('\n')}${h.note?.trim()?'\nメモ：'+h.note.trim():''}`;
+}
+
+export const walkGroups=dog=>dog==='both'?['gin','chibi']:[dog];
+export const walkName=dog=>walkGroups(dog).map(id=>DOGS[id]?.name||id).join('・');
+export const cooldownUntil=lock=>lock?.completedAt?asDate(lock.completedAt).getTime()+6*3600000:0;
+export function checkUnavailable(month,slots,note=''){
+ if(!validMonth(month)||!Array.isArray(slots)||slots.length>62||new Set(slots).size!==slots.length||typeof note!=='string'||note.length>500)throw Error('提出する月・日付・メモを確認してください。');
+ for(const slot of slots){const [day,time]=slot.split('_');if(!validDate(day)||day.replaceAll('-','').slice(0,6)!==month||!['am','pm'].includes(time))throw Error('対象月の朝・夕方を選んでください。')}
 }

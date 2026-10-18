@@ -2,9 +2,9 @@ import {copyDutyPattern} from './duty-copy.js';
 import {deleteHealthReport} from './health-delete.js';
 import {initializeApp,deleteApp} from 'https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js';
 import {getAuth,setPersistence,browserLocalPersistence,browserSessionPersistence,signInWithEmailAndPassword,signOut,createUserWithEmailAndPassword,deleteUser} from 'https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js';
-import {getFirestore,collection,doc,getDoc,getDocs,query,where,orderBy,limit,startAfter,runTransaction,writeBatch,setDoc,updateDoc,deleteDoc,serverTimestamp,Timestamp} from 'https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js';
-import {checkHealth,checkEvent,validDate,applyCatalog,checkCatalog} from './core.js?v=20261018-schedule-people';
-import {startWalk,completeWalk,receiveLedger,saveCatalogEntry} from './transactions.js';
+import {onSnapshot,getFirestore,collection,doc,getDoc,getDocs,query,where,orderBy,limit,startAfter,runTransaction,writeBatch,setDoc,updateDoc,deleteDoc,serverTimestamp,Timestamp} from 'https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js';
+import {checkHealth,checkEvent,validDate,applyCatalog,checkCatalog,checkUnavailable} from './core.js?v=20261018-family-nine';
+import {startWalk,completeWalk,receiveLedger,saveCatalogEntry,correctWalk,backfillWalkStatus} from './transactions.js?v=20261018-family-nine';
 export async function connect(config,domain){
   const application=initializeApp(config),auth=getAuth(application),db=getFirestore(application);
   const preferenceKey=`sanpo-keep-login:${config.projectId}`;
@@ -12,7 +12,7 @@ export async function connect(config,domain){
   try{keepLogin=localStorage.getItem(preferenceKey)!=='false'}catch{}
   await setPersistence(auth,keepLogin?browserLocalPersistence:browserSessionPersistence);
   await auth.authStateReady();
-  let profile;
+  let profile,statusMigrated=false;
   const ref=(...p)=>doc(db,...p);
   const rows=async q=>(await getDocs(q)).docs.map(x=>({id:x.id,...x.data()}));
   const api={demo:false,
@@ -25,7 +25,13 @@ export async function connect(config,domain){
     async members(){return rows(collection(db,'members'))},
     async walks(){const q=profile.role==='admin'?collection(db,'walks'):query(collection(db,'walks'),where('uid','==',profile.uid));return (await rows(q)).sort((a,b)=>(b.startedAt?.toMillis()||0)-(a.startedAt?.toMillis()||0))},
     async walkPage(cursor){let q=profile.role==='admin'?query(collection(db,'walks'),orderBy('startedAt','desc'),limit(101)):query(collection(db,'walks'),where('uid','==',profile.uid),orderBy('startedAt','desc'),limit(101));if(cursor)q=query(q,startAfter(cursor));const snap=await getDocs(q);return {walks:snap.docs.slice(0,100).map(x=>({id:x.id,...x.data()})),next:snap.docs.length>100?snap.docs[99]:null}},
-    async locks(){return rows(collection(db,'dogLocks'))},
+    async correctWalk(id,dog,reason,cancel=false){return correctWalk({doc,collection,runTransaction,serverTimestamp,getDoc},db,profile.uid,id,dog,reason,cancel)},
+    async correctionHistory(id){return rows(query(collection(db,'walkEdits'),where('walkId','==',id)))},
+    async unavailable(month){let q=query(collection(db,'unavailability'),where('month','==',month));if(profile.role!=='admin')q=query(q,where('uid','==',profile.uid));return rows(q)},
+    async saveUnavailable(month,slots,note){checkUnavailable(month,slots,note);await setDoc(ref('unavailability',profile.uid+'_'+month),{uid:profile.uid,month,slots,note,submittedAt:serverTimestamp()})},
+    async walkDetails(uid,period){return rows(query(collection(db,'walks'),where('uid','==',uid),where('period','==',period)))},
+    watchLocks(callback,onError){return onSnapshot(collection(db,'dogLocks'),snap=>callback(snap.docs.map(d=>({id:d.id,...d.data()}))),onError)},
+    async locks(){if(profile.role==='admin'&&!statusMigrated){const recent=await rows(query(collection(db,'walks'),where('endedAt','>',Timestamp.fromMillis(Date.now()-6*3600000))));await backfillWalkStatus({doc,runTransaction},db,recent);statusMigrated=true}return rows(collection(db,'dogLocks'))},
     async start(dog){return startWalk({doc,collection,runTransaction,serverTimestamp},db,profile.uid,dog,profile.allowanceEnabled!==false)},
     async complete(id){return completeWalk({doc,runTransaction,serverTimestamp,getDoc},db,profile.uid,id)},
     async markReported(id,kind='walks'){if(!['walks','health'].includes(kind))throw Error('報告の種類を確認してください。');await runTransaction(db,async tx=>{const r=ref(kind,id),snapshot=await tx.get(r);if(!snapshot.exists()||(kind==='walks'&&!snapshot.data().endedAt))throw Error('完了した散歩だけ報告済みにできます。');if(snapshot.data().lineReportedAt)return;tx.update(r,{lineReportedAt:serverTimestamp()})})},
@@ -50,6 +56,6 @@ export async function connect(config,domain){
       finally{await signOut(otherAuth);await deleteApp(other)}
     },
     async updateMember(uid,data){if(uid===profile.uid)throw Error('自分自身の権限や利用状態は変更できません。');const [lock,person]=await Promise.all([getDoc(ref('handlerLocks',uid)),getDoc(ref('members',uid))]);if(lock.data()?.active&&(!data.active||data.role!==person.data().role))throw Error('散歩中です。完了してから利用状態や権限を変更してください。');await updateDoc(ref('members',uid),data)},
-    async backup(){const members=await this.members(),walks=await this.walks(),duties=await rows(collection(db,'duties')),events=await rows(collection(db,'events')),health=await rows(collection(db,'health'));const ledgers={},comments={};for(const m of members)ledgers[m.id]=await this.ledgers(m.id);for(const h of health)comments[h.id]=await this.comments(h.id);return {catalog:await this.catalog(),version:2,exportedAt:new Date().toISOString(),members,walks,duties,events,health,ledgers,comments}}
+    async backup(){const unavailability=await rows(collection(db,'unavailability')),walkEdits=await rows(collection(db,'walkEdits'));const members=await this.members(),walks=await this.walks(),duties=await rows(collection(db,'duties')),events=await rows(collection(db,'events')),health=await rows(collection(db,'health'));const ledgers={},comments={};for(const m of members)ledgers[m.id]=await this.ledgers(m.id);for(const h of health)comments[h.id]=await this.comments(h.id);return {unavailability,walkEdits,catalog:await this.catalog(),version:3,exportedAt:new Date().toISOString(),members,walks,duties,events,health,ledgers,comments}}
   };return api;
 }
