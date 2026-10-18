@@ -49,3 +49,6 @@
 .submission-admin{position:relative}.submission-popover{position:absolute;z-index:100;background:#fff;color:#243c32;width:300px;max-width:calc(100% - 16px);padding:12px;border:1px solid #b2c2b6;border-radius:12px;box-shadow:0 8px 24px #142b2333;font-size:14px}.submission-popover-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.submission-popover-head button{margin:0;min-width:40px;min-height:40px;padding:5px 10px;font-size:19px}.submission-popover-content{max-height:min(55vh,400px);overflow:auto;overflow-wrap:anywhere}.submission-popover-content p{margin:8px 0}.submission-popover .note{white-space:pre-wrap}#admin-note-form textarea{min-height:130px}
 
 .submission-assign.confirmed{background:#24674b;color:#fff;border-color:#24674b}.submission-choice input:checked+span{flex-wrap:wrap}#unavailable-form.select-available .submission-choice input:checked+span{background:#24674b;border-color:#24674b}#unavailable-form.select-available .submission-choice input:checked+span::after{content:"○"}
+
+.submission-bulk{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0}.submission-bulk button{margin:0;min-height:44px}.submission-bulk .submission-clear{background:#f4e9e9;color:#88413c}
+@media(max-width:380px){.submission-bulk{gap:5px}.submission-bulk button{padding:9px 8px;font-size:13px}}
