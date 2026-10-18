@@ -1,3 +1,4 @@
+import {addHistoricalWalk} from './history-entry.js?v=20261018-history-entry';
 import {copyDutyPattern,saveDutySlot,saveAdminScheduleNote} from './duty-copy.js?v=20261018-group-all';
 import {deleteHealthReport} from './health-delete.js';
 import {initializeApp,deleteApp} from 'https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js';
@@ -34,6 +35,7 @@ export async function connect(config,domain){
     async walkDetails(uid,period){return rows(query(collection(db,'walks'),where('uid','==',uid),where('period','==',period)))},
     watchLocks(callback,onError){return onSnapshot(collection(db,'dogLocks'),snap=>callback(snap.docs.map(d=>({id:d.id,...d.data()}))),onError)},
     async locks(){if(profile.role==='admin'&&!statusMigrated){const recent=await rows(query(collection(db,'walks'),where('endedAt','>',Timestamp.fromMillis(Date.now()-6*3600000))));await backfillWalkStatus({doc,runTransaction,getDoc},db,recent);statusMigrated=true}return rows(collection(db,'dogLocks'))},
+    async addHistorical(input){return addHistoricalWalk({doc,runTransaction,serverTimestamp,Timestamp},db,profile.uid,input)},
     async start(dog){return startWalk({doc,collection,runTransaction,serverTimestamp},db,profile.uid,dog,profile.allowanceEnabled!==false)},
     async complete(id){return completeWalk({doc,runTransaction,serverTimestamp,getDoc},db,profile.uid,id)},
     async markReported(id,kind='walks'){if(!['walks','health'].includes(kind))throw Error('報告の種類を確認してください。');await runTransaction(db,async tx=>{const r=ref(kind,id),snapshot=await tx.get(r);if(!snapshot.exists()||(kind==='walks'&&!snapshot.data().endedAt))throw Error('完了した散歩だけ報告済みにできます。');if(snapshot.data().lineReportedAt)return;tx.update(r,{lineReportedAt:serverTimestamp()})})},
